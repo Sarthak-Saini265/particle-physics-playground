@@ -1,0 +1,383 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Physics Playground</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: sans-serif;
+            overflow: hidden; /* Hide scrollbars */
+            background: linear-gradient(to bottom, #1e3a8a, #000000); /* Dark gradient background */
+            color: white;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        .controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .preset-buttons {
+            margin-top: 10px;
+        }
+
+        .fps-counter {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .particle-count {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .slider-container {
+            margin-bottom: 5px;
+        }
+
+        .slider-label {
+            margin-bottom: 3px;
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <div class="slider-container">
+            <label for="gravitySlider" class="slider-label">Gravity: <span id="gravityValue">1.0</span></label>
+            <input type="range" id="gravitySlider" min="0" max="2" step="0.01" value="1" class="form-range">
+        </div>
+        <div class="slider-container">
+            <label for="particleCountSlider" class="slider-label">Particle Count: <span id="particleCountValue">50</span></label>
+            <input type="range" id="particleCountSlider" min="10" max="200" step="1" value="50" class="form-range">
+        </div>
+        <div class="slider-container">
+            <label for="particleLifetimeSlider" class="slider-label">Lifetime: <span id="particleLifetimeValue">3.0</span>s</label>
+            <input type="range" id="particleLifetimeSlider" min="1" max="5" step="0.1" value="3" class="form-range">
+        </div>
+        <div class="slider-container">
+            <label for="particleSizeSlider" class="slider-label">Size: <span id="particleSizeValue">10</span>px</label>
+            <input type="range" id="particleSizeSlider" min="2" max="20" step="1" value="10" class="form-range">
+        </div>
+        <div class="preset-buttons">
+            <button type="button" class="btn btn-primary preset-button" data-preset="fireworks">🎆 Fireworks</button>
+            <button type="button" class="btn btn-warning preset-button" data-preset="stars">⭐ Stars</button>
+            <button type="button" class="btn btn-info preset-button" data-preset="galaxy">💫 Galaxy</button>
+            <button type="button" class="btn btn-success preset-button" data-preset="rainbow">🌈 Rainbow</button>
+            <button type="button" class="btn btn-secondary preset-button" data-preset="snow">❄️ Snow</button>
+        </div>
+        <button type="button" class="btn btn-danger" id="clearButton">Clear Canvas</button>
+    </div>
+
+    <div class="fps-counter" id="fpsCounter">FPS: 0</div>
+    <div class="particle-count" id="particleCount">Particles: 0</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let lastFrameTime = 0;
+        let fps = 0;
+        let particleCount = 0;
+
+        // Control Elements
+        const gravitySlider = document.getElementById('gravitySlider');
+        const gravityValueDisplay = document.getElementById('gravityValue');
+        const particleCountSlider = document.getElementById('particleCountSlider');
+        const particleCountValueDisplay = document.getElementById('particleCountValue');
+        const particleLifetimeSlider = document.getElementById('particleLifetimeSlider');
+        const particleLifetimeValueDisplay = document.getElementById('particleLifetimeValue');
+        const particleSizeSlider = document.getElementById('particleSizeSlider');
+        const particleSizeValueDisplay = document.getElementById('particleSizeValue');
+        const clearButton = document.getElementById('clearButton');
+        const fpsCounter = document.getElementById('fpsCounter');
+        const particleCountDisplay = document.getElementById('particleCount');
+
+        // Particle Class
+        class Particle {
+            constructor(x, y, vx, vy, size, color, lifetime) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.color = color;
+                this.lifetime = lifetime;
+                this.alpha = 1;
+                this.birthTime = Date.now();
+            }
+
+            update(gravity) {
+                this.vx *= 0.98; // Friction
+                this.vy += gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha = Math.max(0, 1 - (Date.now() - this.birthTime) / (this.lifetime * 1000));
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.filter = `blur(${this.size / 4}px)`; // Add glow effect
+                ctx.globalAlpha = this.alpha; // Apply alpha for fading
+                ctx.fillStyle = this.color;
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.filter = 'none';
+                ctx.globalAlpha = 1; // Reset globalAlpha
+            }
+        }
+
+
+
+        // Utility Functions
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function createExplosion(x, y, count, settings) {
+            const particleSize = settings.size;
+            const lifetime = settings.lifetime;
+            const gravity = settings.gravity;
+
+            for (let i = 0; i < count; i++) {
+                let vx = Math.random() * 6 - 3;
+                let vy = Math.random() * 6 - 3;
+
+                if (settings.direction){
+                    if (settings.direction === 'up'){
+                        vy = Math.random() * -10 - 2;
+                    }
+                }
+
+                let color = getRandomColor();
+                if (settings.colors){
+                    color = settings.colors[Math.floor(Math.random() * settings.colors.length)]
+                }
+
+
+                particles.push(new Particle(x, y, vx, vy, particleSize, color, lifetime));
+                particleCount++; // Increment particle count
+            }
+        }
+
+        function clearCanvas() {
+            particles = [];
+            particleCount = 0;
+        }
+
+        // Preset Effects
+        function applyPreset(preset) {
+            clearCanvas(); // Clear existing particles
+
+            const x = canvas.width / 2;
+            const y = canvas.height / 2;
+            const particleCount = parseInt(particleCountSlider.value);
+            const particleLifetime = parseFloat(particleLifetimeSlider.value);
+            const particleSize = parseInt(particleSizeSlider.value);
+            const gravity = parseFloat(gravitySlider.value);
+
+            switch (preset) {
+                case 'fireworks':
+                    for (let i = 0; i < particleCount; i++) {
+                        const color = getRandomColor();
+                        const vx = Math.random() * 4 - 2;
+                        const vy = Math.random() * -10 - 2;
+                        particles.push(new Particle(x, y, vx, vy, particleSize, color, particleLifetime));
+                    }
+                    break;
+
+                case 'stars':
+                    for (let i = 0; i < particleCount; i++) {
+                        const color = '#FFD700'; // Golden
+                        const vx = Math.random() * 2 - 1;
+                        const vy = Math.random() * 2 - 1;
+                        particles.push(new Particle(x, y, vx, vy, particleSize, color, particleLifetime));
+                    }
+                    break;
+
+                case 'galaxy':
+                    for (let i = 0; i < particleCount; i++) {
+                        const colors = ['#8e44ad', '#9b59b6', '#3498db']; // Purple/Blue
+                        const color = colors[Math.floor(Math.random() * colors.length)];
+                        const angle = Math.random() * Math.PI * 2;
+                        const distance = Math.random() * 50;
+                        const vx = Math.cos(angle) * 2;
+                        const vy = Math.sin(angle) * 2;
+                        const px = x + Math.cos(angle) * distance;
+                        const py = y + Math.sin(angle) * distance;
+                        particles.push(new Particle(px, py, vx, vy, particleSize, color, particleLifetime));
+                    }
+                    break;
+
+                case 'rainbow':
+                    const rainbowColors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'];
+                    for (let i = 0; i < particleCount; i++) {
+                        const color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
+                        const vx = Math.random() * 4 - 2;
+                        const vy = Math.random() * 4 - 2;
+                        particles.push(new Particle(x, y, vx, vy, particleSize, color, particleLifetime));
+                    }
+                    break;
+
+                case 'snow':
+                    for (let i = 0; i < particleCount; i++) {
+                        const color = ['white', '#ADD8E6'][Math.floor(Math.random() * 2)]; // White/Light Blue
+                        const vx = Math.random() * 2 - 1;
+                        const vy = Math.random() * 1 + 0.5;
+                        const px = Math.random() * canvas.width;
+                        const py = Math.random() * canvas.height;
+                        particles.push(new Particle(px, py, vx, vy, particleSize, color, particleLifetime));
+                    }
+                    break;
+
+                default:
+                    // Default behavior or error handling
+                    break;
+            }
+        }
+
+        // Event Listeners
+        document.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const particleCount = parseInt(particleCountSlider.value);
+            const particleLifetime = parseFloat(particleLifetimeSlider.value);
+
+            createExplosion(x, y, particleCount, {
+                size: parseInt(particleSizeSlider.value),
+                lifetime: particleLifetime,
+                gravity: parseFloat(gravitySlider.value)
+            });
+
+        });
+
+        clearButton.addEventListener('click', clearCanvas);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                const x = canvas.width / 2;
+                const y = canvas.height / 2;
+                const particleCount = parseInt(particleCountSlider.value);
+                const particleLifetime = parseFloat(particleLifetimeSlider.value);
+                createExplosion(x, y, particleCount, {
+                    size: parseInt(particleSizeSlider.value),
+                    lifetime: particleLifetime,
+                    gravity: parseFloat(gravitySlider.value)
+                });
+            } else if (e.code === 'KeyC') {
+                clearCanvas();
+            } else if (e.code >= 'Digit1' && e.code <= 'Digit5') {
+                const presetIndex = parseInt(e.code.charAt(e.code.length - 1)) - 1;
+                const presetButtons = document.querySelectorAll('.preset-button');
+                if (presetIndex >= 0 && presetIndex < presetButtons.length) {
+                    const preset = presetButtons[presetIndex].dataset.preset;
+                    applyPreset(preset);
+                }
+            }
+        });
+
+        document.querySelectorAll('.preset-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const preset = e.target.dataset.preset;
+                applyPreset(preset);
+            });
+        });
+
+
+        gravitySlider.addEventListener('input', (e) => {
+            gravityValueDisplay.textContent = parseFloat(e.target.value).toFixed(2); // Display gravity value
+        });
+
+        particleCountSlider.addEventListener('input', (e) => {
+            particleCountValueDisplay.textContent = e.target.value;
+        });
+
+        particleLifetimeSlider.addEventListener('input', (e) => {
+            particleLifetimeValueDisplay.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+
+        particleSizeSlider.addEventListener('input', (e) => {
+            particleSizeValueDisplay.textContent = e.target.value;
+        });
+
+
+        // Animation Loop
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            const deltaTime = currentTime - lastFrameTime;
+            lastFrameTime = currentTime;
+            fps = Math.round(1000 / deltaTime);
+            fpsCounter.textContent = `FPS: ${fps}`;
+            particleCountDisplay.textContent = `Particles: ${particleCount}`;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = particles.length - 1; i >= 0; i--) { // Iterate backwards to remove elements safely
+                const particle = particles[i];
+                particle.update(parseFloat(gravitySlider.value));
+                particle.draw();
+
+                if (particle.alpha <= 0) {
+                    particles.splice(i, 1); // Remove particle
+                    particleCount--; // Decrement particle count
+                }
+            }
+        }
+
+        // Resize Canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // Initialize
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>
