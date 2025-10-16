@@ -9,8 +9,8 @@
     <style>
         body {
             font-family: sans-serif;
-            overflow: hidden; /* Hide scrollbars */
-            background: linear-gradient(to bottom, #1e3a8a, #000000); /* Dark gradient background */
+            overflow: hidden;
+            background-color: #000000;
             color: white;
         }
 
@@ -23,50 +23,35 @@
 
         .controls {
             position: fixed;
-            top: 10px;
-            left: 10px;
-            z-index: 10;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-        }
-
-        .preset-buttons {
-            margin-top: 10px;
-        }
-
-        .fps-counter {
-            position: fixed;
-            top: 10px;
+            bottom: 10px;
             right: 10px;
             z-index: 10;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.5);
             padding: 5px 10px;
             border-radius: 5px;
             font-size: 12px;
+            display: flex;
+            align-items: center;
         }
 
-        .particle-count {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            z-index: 10;
-            background-color: rgba(0, 0, 0, 0.7);
+        .add-ball-button {
+            margin-left: 5px;
             padding: 5px 10px;
-            border-radius: 5px;
+            border: none;
+            border-radius: 3px;
+            background-color: #555;
+            color: white;
+            cursor: pointer;
             font-size: 12px;
         }
 
-        .slider-container {
-            margin-bottom: 5px;
+        .add-ball-button:hover {
+            background-color: #777;
         }
 
-        .slider-label {
-            margin-bottom: 3px;
-            display: block;
+        .ball-count {
+            margin-left: 10px;
         }
-
     </style>
 </head>
 <body>
@@ -74,34 +59,9 @@
     <canvas id="canvas"></canvas>
 
     <div class="controls">
-        <div class="slider-container">
-            <label for="gravitySlider" class="slider-label">Gravity: <span id="gravityValue">1.0</span></label>
-            <input type="range" id="gravitySlider" min="0" max="2" step="0.01" value="1" class="form-range">
-        </div>
-        <div class="slider-container">
-            <label for="particleCountSlider" class="slider-label">Particle Count: <span id="particleCountValue">50</span></label>
-            <input type="range" id="particleCountSlider" min="10" max="200" step="1" value="50" class="form-range">
-        </div>
-        <div class="slider-container">
-            <label for="particleLifetimeSlider" class="slider-label">Lifetime: <span id="particleLifetimeValue">3.0</span>s</label>
-            <input type="range" id="particleLifetimeSlider" min="1" max="5" step="0.1" value="3" class="form-range">
-        </div>
-        <div class="slider-container">
-            <label for="particleSizeSlider" class="slider-label">Size: <span id="particleSizeValue">10</span>px</label>
-            <input type="range" id="particleSizeSlider" min="2" max="20" step="1" value="10" class="form-range">
-        </div>
-        <div class="preset-buttons">
-            <button type="button" class="btn btn-primary preset-button" data-preset="fireworks">🎆 Fireworks</button>
-            <button type="button" class="btn btn-warning preset-button" data-preset="stars">⭐ Stars</button>
-            <button type="button" class="btn btn-info preset-button" data-preset="galaxy">💫 Galaxy</button>
-            <button type="button" class="btn btn-success preset-button" data-preset="rainbow">🌈 Rainbow</button>
-            <button type="button" class="btn btn-secondary preset-button" data-preset="snow">❄️ Snow</button>
-        </div>
-        <button type="button" class="btn btn-danger" id="clearButton">Clear Canvas</button>
+        <button type="button" class="add-ball-button" id="addBallButton">Add Ball</button>
+        <div class="ball-count" id="ballCount">Balls: 0</div>
     </div>
-
-    <div class="fps-counter" id="fpsCounter">FPS: 0</div>
-    <div class="particle-count" id="particleCount">Particles: 0</div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -110,236 +70,197 @@
         let particles = [];
         let lastFrameTime = 0;
         let fps = 0;
-        let particleCount = 0;
+        let ballCountDisplay = document.getElementById('ballCount');
+        const addBallButton = document.getElementById('addBallButton');
 
-        // Control Elements
-        const gravitySlider = document.getElementById('gravitySlider');
-        const gravityValueDisplay = document.getElementById('gravityValue');
-        const particleCountSlider = document.getElementById('particleCountSlider');
-        const particleCountValueDisplay = document.getElementById('particleCountValue');
-        const particleLifetimeSlider = document.getElementById('particleLifetimeSlider');
-        const particleLifetimeValueDisplay = document.getElementById('particleLifetimeValue');
-        const particleSizeSlider = document.getElementById('particleSizeSlider');
-        const particleSizeValueDisplay = document.getElementById('particleSizeValue');
-        const clearButton = document.getElementById('clearButton');
-        const fpsCounter = document.getElementById('fpsCounter');
-        const particleCountDisplay = document.getElementById('particleCount');
+        const gravity = 0.1;
+        const friction = 0.99; // Air resistance
+        const restitution = 0.7; // Bounciness
 
-        // Particle Class
         class Particle {
-            constructor(x, y, vx, vy, size, color, lifetime) {
+            constructor(x, y, radius, color, vx = 0, vy = 0) {
                 this.x = x;
                 this.y = y;
+                this.radius = radius;
+                this.color = color;
                 this.vx = vx;
                 this.vy = vy;
-                this.size = size;
-                this.color = color;
-                this.lifetime = lifetime;
-                this.alpha = 1;
-                this.birthTime = Date.now();
+                this.dragging = false;
+                this.dragOffsetX = 0;
+                this.dragOffsetY = 0;
             }
 
-            update(gravity) {
-                this.vx *= 0.98; // Friction
-                this.vy += gravity;
-                this.x += this.vx;
-                this.y += this.vy;
-                this.alpha = Math.max(0, 1 - (Date.now() - this.birthTime) / (this.lifetime * 1000));
+            update() {
+                if (!this.dragging) {
+                    this.vy += gravity;
+                    this.vx *= friction;
+                    this.vy *= friction;
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    // Bounce off the walls
+                    if (this.x + this.radius > canvas.width) {
+                        this.x = canvas.width - this.radius;
+                        this.vx *= -restitution;
+                    }
+                    if (this.x - this.radius < 0) {
+                        this.x = this.radius;
+                        this.vx *= -restitution;
+                    }
+                    if (this.y + this.radius > canvas.height) {
+                        this.y = canvas.height - this.radius;
+                        this.vy *= -restitution;
+                    }
+                    if (this.y - this.radius < 0) {
+                        this.y = this.radius;
+                        this.vy *= -restitution;
+                    }
+                }
             }
 
             draw() {
+                // Metallic shading
+                const gradient = ctx.createRadialGradient(this.x - this.radius * 0.3, this.y - this.radius * 0.3, 0, this.x, this.y, this.radius);
+                gradient.addColorStop(0, '#ddd'); // Lighter center
+                gradient.addColorStop(0.5, '#999'); // Mid-tone
+                gradient.addColorStop(1, '#666'); // Darker edge
+
                 ctx.beginPath();
-                ctx.filter = `blur(${this.size / 4}px)`; // Add glow effect
-                ctx.globalAlpha = this.alpha; // Apply alpha for fading
-                ctx.fillStyle = this.color;
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 5;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
                 ctx.fill();
-                ctx.filter = 'none';
-                ctx.globalAlpha = 1; // Reset globalAlpha
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+
             }
-        }
-
-
-
-        // Utility Functions
-        function getRandomColor() {
-            const letters = '0123456789ABCDEF';
-            let color = '#';
-            for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-            }
-            return color;
         }
 
         function getRandomInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        function createExplosion(x, y, count, settings) {
-            const particleSize = settings.size;
-            const lifetime = settings.lifetime;
-            const gravity = settings.gravity;
-
-            for (let i = 0; i < count; i++) {
-                let vx = Math.random() * 6 - 3;
-                let vy = Math.random() * 6 - 3;
-
-                if (settings.direction){
-                    if (settings.direction === 'up'){
-                        vy = Math.random() * -10 - 2;
-                    }
-                }
-
-                let color = getRandomColor();
-                if (settings.colors){
-                    color = settings.colors[Math.floor(Math.random() * settings.colors.length)]
-                }
-
-
-                particles.push(new Particle(x, y, vx, vy, particleSize, color, lifetime));
-                particleCount++; // Increment particle count
-            }
+        function addBall() {
+            const radius = getRandomInt(10, 25);
+            const x = getRandomInt(radius, canvas.width - radius);
+            const y = getRandomInt(radius, canvas.height - radius);
+            const color = '#aaa';
+            particles.push(new Particle(x, y, radius, color));
         }
 
-        function clearCanvas() {
+        function clearBalls() {
             particles = [];
-            particleCount = 0;
         }
 
-        // Preset Effects
-        function applyPreset(preset) {
-            clearCanvas(); // Clear existing particles
+        function checkCollisions() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
 
-            const x = canvas.width / 2;
-            const y = canvas.height / 2;
-            const particleCount = parseInt(particleCountSlider.value);
-            const particleLifetime = parseFloat(particleLifetimeSlider.value);
-            const particleSize = parseInt(particleSizeSlider.value);
-            const gravity = parseFloat(gravitySlider.value);
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
 
-            switch (preset) {
-                case 'fireworks':
-                    for (let i = 0; i < particleCount; i++) {
-                        const color = getRandomColor();
-                        const vx = Math.random() * 4 - 2;
-                        const vy = Math.random() * -10 - 2;
-                        particles.push(new Particle(x, y, vx, vy, particleSize, color, particleLifetime));
+                    if (distance < p1.radius + p2.radius) {
+                        // Collision detected
+                        const angle = Math.atan2(dy, dx);
+                        const sin = Math.sin(angle);
+                        const cos = Math.cos(angle);
+
+                        // Rotate velocities to align with the collision axis
+                        const vx1 = p1.vx;
+                        const vy1 = p1.vy;
+                        const vx2 = p2.vx;
+                        const vy2 = p2.vy;
+
+                        p1.vx = vx2 * cos - vy2 * sin;
+                        p1.vy = vx2 * sin + vy2 * cos;
+                        p2.vx = vx1 * cos - vy1 * sin;
+                        p2.vy = vx1 * sin + vy1 * cos;
+
+                        // Apply collision response (conservation of momentum and energy)
+                        const velocity_change_x = (p1.vx - p2.vx) * cos;
+                        const velocity_change_y = (p1.vy - p2.vy) * sin;
+
+                        p1.vx -= velocity_change_x;
+                        p1.vy -= velocity_change_y;
+                        p2.vx += velocity_change_x;
+                        p2.vy += velocity_change_y;
+
+                        // Separate the balls to avoid sticking
+                        const overlap = (p1.radius + p2.radius - distance) / 2;
+                        p1.x -= overlap * cos;
+                        p1.y -= overlap * sin;
+                        p2.x += overlap * cos;
+                        p2.y += overlap * sin;
                     }
-                    break;
-
-                case 'stars':
-                    for (let i = 0; i < particleCount; i++) {
-                        const color = '#FFD700'; // Golden
-                        const vx = Math.random() * 2 - 1;
-                        const vy = Math.random() * 2 - 1;
-                        particles.push(new Particle(x, y, vx, vy, particleSize, color, particleLifetime));
-                    }
-                    break;
-
-                case 'galaxy':
-                    for (let i = 0; i < particleCount; i++) {
-                        const colors = ['#8e44ad', '#9b59b6', '#3498db']; // Purple/Blue
-                        const color = colors[Math.floor(Math.random() * colors.length)];
-                        const angle = Math.random() * Math.PI * 2;
-                        const distance = Math.random() * 50;
-                        const vx = Math.cos(angle) * 2;
-                        const vy = Math.sin(angle) * 2;
-                        const px = x + Math.cos(angle) * distance;
-                        const py = y + Math.sin(angle) * distance;
-                        particles.push(new Particle(px, py, vx, vy, particleSize, color, particleLifetime));
-                    }
-                    break;
-
-                case 'rainbow':
-                    const rainbowColors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'];
-                    for (let i = 0; i < particleCount; i++) {
-                        const color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
-                        const vx = Math.random() * 4 - 2;
-                        const vy = Math.random() * 4 - 2;
-                        particles.push(new Particle(x, y, vx, vy, particleSize, color, particleLifetime));
-                    }
-                    break;
-
-                case 'snow':
-                    for (let i = 0; i < particleCount; i++) {
-                        const color = ['white', '#ADD8E6'][Math.floor(Math.random() * 2)]; // White/Light Blue
-                        const vx = Math.random() * 2 - 1;
-                        const vy = Math.random() * 1 + 0.5;
-                        const px = Math.random() * canvas.width;
-                        const py = Math.random() * canvas.height;
-                        particles.push(new Particle(px, py, vx, vy, particleSize, color, particleLifetime));
-                    }
-                    break;
-
-                default:
-                    // Default behavior or error handling
-                    break;
+                }
             }
         }
 
         // Event Listeners
-        document.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const particleCount = parseInt(particleCountSlider.value);
-            const particleLifetime = parseFloat(particleLifetimeSlider.value);
-
-            createExplosion(x, y, particleCount, {
-                size: parseInt(particleSizeSlider.value),
-                lifetime: particleLifetime,
-                gravity: parseFloat(gravitySlider.value)
-            });
-
-        });
-
-        clearButton.addEventListener('click', clearCanvas);
+        addBallButton.addEventListener('click', addBall);
 
         document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                const x = canvas.width / 2;
-                const y = canvas.height / 2;
-                const particleCount = parseInt(particleCountSlider.value);
-                const particleLifetime = parseFloat(particleLifetimeSlider.value);
-                createExplosion(x, y, particleCount, {
-                    size: parseInt(particleSizeSlider.value),
-                    lifetime: particleLifetime,
-                    gravity: parseFloat(gravitySlider.value)
-                });
-            } else if (e.code === 'KeyC') {
-                clearCanvas();
-            } else if (e.code >= 'Digit1' && e.code <= 'Digit5') {
-                const presetIndex = parseInt(e.code.charAt(e.code.length - 1)) - 1;
-                const presetButtons = document.querySelectorAll('.preset-button');
-                if (presetIndex >= 0 && presetIndex < presetButtons.length) {
-                    const preset = presetButtons[presetIndex].dataset.preset;
-                    applyPreset(preset);
+            if (e.key === 'r') {
+                clearBalls();
+            }
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            for (const particle of particles) {
+                const dx = mouseX - particle.x;
+                const dy = mouseY - particle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < particle.radius) {
+                    particle.dragging = true;
+                    particle.dragOffsetX = dx;
+                    particle.dragOffsetY = dy;
+                    break; // Only allow dragging one ball at a time
                 }
             }
         });
 
-        document.querySelectorAll('.preset-button').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const preset = e.target.dataset.preset;
-                applyPreset(preset);
-            });
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            for (const particle of particles) {
+                if (particle.dragging) {
+                    particle.x = mouseX - particle.dragOffsetX;
+                    particle.y = mouseY - particle.dragOffsetY;
+                    particle.vx = 0;
+                    particle.vy = 0;
+                }
+            }
         });
 
-
-        gravitySlider.addEventListener('input', (e) => {
-            gravityValueDisplay.textContent = parseFloat(e.target.value).toFixed(2); // Display gravity value
+        canvas.addEventListener('mouseup', (e) => {
+            for (const particle of particles) {
+                if (particle.dragging) {
+                    particle.dragging = false;
+                }
+            }
         });
 
-        particleCountSlider.addEventListener('input', (e) => {
-            particleCountValueDisplay.textContent = e.target.value;
-        });
-
-        particleLifetimeSlider.addEventListener('input', (e) => {
-            particleLifetimeValueDisplay.textContent = parseFloat(e.target.value).toFixed(1);
-        });
-
-        particleSizeSlider.addEventListener('input', (e) => {
-            particleSizeValueDisplay.textContent = e.target.value;
+        canvas.addEventListener('mouseleave', (e) => {
+            for (const particle of particles) {
+                if (particle.dragging) {
+                    particle.dragging = false;
+                }
+            }
         });
 
 
@@ -350,21 +271,17 @@
             const deltaTime = currentTime - lastFrameTime;
             lastFrameTime = currentTime;
             fps = Math.round(1000 / deltaTime);
-            fpsCounter.textContent = `FPS: ${fps}`;
-            particleCountDisplay.textContent = `Particles: ${particleCount}`;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            for (let i = particles.length - 1; i >= 0; i--) { // Iterate backwards to remove elements safely
-                const particle = particles[i];
-                particle.update(parseFloat(gravitySlider.value));
-                particle.draw();
+            checkCollisions(); // Check collisions before updating position
 
-                if (particle.alpha <= 0) {
-                    particles.splice(i, 1); // Remove particle
-                    particleCount--; // Decrement particle count
-                }
+            for (const particle of particles) {
+                particle.update();
+                particle.draw();
             }
+
+            ballCountDisplay.textContent = `Balls: ${particles.length}`;
         }
 
         // Resize Canvas
@@ -376,8 +293,13 @@
         // Initialize
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
-        requestAnimationFrame(animate);
 
+        // Initial ball creation
+        for (let i = 0; i < getRandomInt(5, 8); i++) {
+            addBall();
+        }
+
+        requestAnimationFrame(animate);
     </script>
 </body>
 </html>
