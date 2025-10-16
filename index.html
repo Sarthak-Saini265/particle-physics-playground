@@ -119,25 +119,34 @@
             }
 
             draw() {
-                // Metallic shading
-                const gradient = ctx.createRadialGradient(this.x - this.radius * 0.3, this.y - this.radius * 0.3, 0, this.x, this.y, this.radius);
-                gradient.addColorStop(0, '#ddd'); // Lighter center
-                gradient.addColorStop(0.5, '#999'); // Mid-tone
-                gradient.addColorStop(1, '#666'); // Darker edge
+                // Metallic shading with reflection
+                const gradient = ctx.createRadialGradient(
+                    this.x - this.radius * 0.4, this.y - this.radius * 0.4, 0,
+                    this.x, this.y, this.radius
+                );
+                gradient.addColorStop(0, '#ddd'); // Highlight
+                gradient.addColorStop(0.4, '#bbb'); // Mid-tone
+                gradient.addColorStop(0.7, '#888'); // Darker mid-tone
+                gradient.addColorStop(1, '#666'); // Shadow
 
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = gradient;
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-                ctx.shadowBlur = 5;
-                ctx.shadowOffsetX = 2;
-                ctx.shadowOffsetY = 2;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 3;
+                ctx.shadowOffsetY = 3;
                 ctx.fill();
                 ctx.shadowColor = 'transparent';
                 ctx.shadowBlur = 0;
                 ctx.shadowOffsetX = 0;
                 ctx.shadowOffsetY = 0;
 
+                // Add a small specular highlight for a more realistic look
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
             }
         }
 
@@ -146,7 +155,7 @@
         }
 
         function addBall() {
-            const radius = getRandomInt(10, 25);
+            const radius = getRandomInt(25, 40); // Increased ball size
             const x = getRandomInt(radius, canvas.width - radius);
             const y = getRandomInt(radius, canvas.height - radius);
             const color = '#aaa';
@@ -184,7 +193,7 @@
                         p2.vx = vx1 * cos - vy1 * sin;
                         p2.vy = vx1 * sin + vy1 * cos;
 
-                        // Apply collision response (conservation of momentum and energy)
+                         // Apply collision response (conservation of momentum and energy)
                         const velocity_change_x = (p1.vx - p2.vx) * cos;
                         const velocity_change_y = (p1.vy - p2.vy) * sin;
 
