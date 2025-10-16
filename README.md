@@ -2,38 +2,7 @@
 
 ## Summary
 
-[Updated] Completely redesign this into a beautiful, minimalist particle physics simulation. Requirements:
-
-1. VISUAL DESIGN:
-   - Pure black background (#000000)
-   - Metallic steel balls with realistic shading and lighting effects
-   - Balls should have gradient shading to look 3D and metallic
-   - Subtle glow/shadow effects when balls are near each other
-   - No UI clutter - just the canvas and particles
-
-2. INTERACTION:
-   - Click and drag to pick up any ball with your cursor
-   - While dragging, the ball follows your mouse smoothly
-   - Release mouse to drop the ball - it should fall with gravity
-   - Balls bounce off each other realistically
-   - Balls bounce off the edges of the screen
-
-3. PHYSICS:
-   - Realistic gravity pulling balls downward
-   - Collision detection between balls
-   - Momentum transfer during collisions
-   - Smooth, natural movement
-
-4. MINIMAL CONTROLS (bottom-right corner, semi-transparent):
-   - Just ONE button: "Add Ball" (small, elegant)
-   - Optional: Press R to reset/clear all balls
-   - Optional: Show ball count in corner
-
-5. STARTING STATE:
-   - Start with 5-8 steel balls already placed randomly
-   - They should immediately start falling and interacting
-
-The app should feel like playing with real metal balls - satisfying physics, beautiful visuals, zero clutter. Think of it as digital zen meditation with physics.
+[Updated] Nice work, just the final touches, make the balls more realistic, like actual steel balls, with a bit of reflection and make them bigger. I am imagining the balls like in that in newton's cradle.
 
 ## Features
 
@@ -50,7 +19,8 @@ This application was automatically generated to meet the following requirements:
 - Starts with 5-8 balls already placed
 - No sliders or complex UI
 - Smooth 60fps animation
-- Balls look like 3D metallic spheres
+- Balls look like 3D metallic spheres like in Newton's cradle
+- Make balls bigger
 
 ## Setup
 
